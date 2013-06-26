@@ -14,12 +14,10 @@ UINT NrcServer::NetDetectRecover(LPVOID pParam) {
 	NrcServer* pDlg = (NrcServer*)pParam;
 	while(1) {
 		netRecover.Lock();
-		if (pDlg->g_bNetworkFlag == FALSE) {
-			//网络恢复
-			TRACE("NETWORK RECOVER\n");
-			pDlg->g_bNetWorkstation = TRUE;
-			pDlg->g_bNetworkFlag = TRUE;
-			pDlg->g_bThread = TRUE;
+		if (pDlg->m_bNetworkFlag == FALSE) {
+			pDlg->m_bNetWorkstate = TRUE;
+			pDlg->m_bNetworkFlag = TRUE;
+			pDlg->m_bThread = TRUE;
 		}
 	}
 }
@@ -28,13 +26,12 @@ UINT NrcServer::Run(LPVOID pParam) {
 	NrcServer* pDlg = (NrcServer*)pParam;
 	while(1) {
 		DWORD currentTime = GetTickCount();	
-		if(currentTime - pDlg->g_lastPlayingTime > 5000) {
-			pDlg->g_bNetWorkstation = FALSE;
+		if(currentTime - pDlg->m_lastPlayingTime > 5000) {
+			pDlg->m_bNetWorkstate = FALSE;
 			Sleep(1000);
-			pDlg->g_bNetworkFlag = FALSE;
+			pDlg->m_bNetworkFlag = FALSE;
 			AfxEndThread(0);
 		}
-		Sleep(1000);
 	}
 	return 0;
 }
@@ -45,9 +42,9 @@ int __stdcall EventRecvCallBack(UINT uiSession, LPCNcEventInfo pEventInfo, int n
 	
 	NrcServer *pDlg = (NrcServer*)context;
 	if (pEventInfo->uiEventID == 0x30001) {
-		pDlg->g_bServerStaion = FALSE;	
+		pDlg->m_bserverState = FALSE;	
 	} else if (pEventInfo->uiEventID == 0x30002) {
-		pDlg->g_bServerStaion = TRUE;
+		pDlg->m_bserverState = TRUE;
 	}
 	return 0;
 }
@@ -57,17 +54,16 @@ void NrcServer::StartThread() {
 }
 
 int __stdcall StreamReadCallBack(UINT uiSession, NcGUID guid, StreamType streamType, 
-	TransferType transferType, BYTE *pData, UINT uiLength, 
-	LPCNcFrameInfo pFramInfo, int nErrorCode, void *context)
-{
+								 TransferType transferType, BYTE *pData, UINT uiLength, 
+								 LPCNcFrameInfo pFramInfo, int nErrorCode, void *context) {
 	NrcServer *pDlg = (NrcServer*)context;
-	if (pDlg->g_bThread == TRUE) {
+	if (pDlg->m_bThread == TRUE) {
 		pDlg->StartThread();
-		pDlg->g_bThread = FALSE;
+		pDlg->m_bThread = FALSE;
 	}
-	//发送通知信号
+	//发送通知信号 通知网络恢复
 	netRecover.SetEvent();		
-	pDlg->g_lastPlayingTime = GetTickCount();
+	pDlg->m_lastPlayingTime = GetTickCount();
 	BYTE *pGUID = (BYTE *)guid;
 	int rv = 0;
 	wchar_t szPath[1024];
@@ -175,9 +171,9 @@ int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT ui
 		NrcServer* pDlg = (NrcServer*)pContext;
 	// 在这里可以直接将RGB数据存成BMP文件
 	// 每20秒存一副图片
-	if (uiTimeStamp - pDlg->g_dwLastTime > 600 * 1000)
+	if (uiTimeStamp - pDlg->m_dwLastTime > 600 * 1000)
 	{
-		pDlg->g_dwLastTime = uiTimeStamp;
+		pDlg->m_dwLastTime = uiTimeStamp;
 		char szFile[MAX_PATH];
 		sprintf(szFile, "0x%08X.bmp", uiTimeStamp);
 
@@ -263,29 +259,35 @@ int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT ui
 
 //构造函数
 NrcServer::NrcServer() {
-	m_lpszUserName		= _T("admin");
-	int m_nPort			= 3645;
-	m_lpszAddress		= _T("172.168.1.101");
-	m_lpszPassword		= _T("");
 	m_bPlaying			= FALSE;
 	m_st				= stream_realtime;
 	m_tt				= transfer_tcp;
 	m_uiSession			= NRCAP_INVALID_SESSION;
-	g_bInitlized		= FALSE;
+	m_bInitlized		= FALSE;
 	ServerName			= _T("NRCSERVER");
-	g_bThread			= FALSE;
-	g_bNetWorkstation	= TRUE;
-	g_bServerStaion		= TRUE;
-	g_bNetworkFlag		= TRUE;
-	g_dwLastTime		= 0;
+	m_bThread			= FALSE;
+	m_bNetWorkstate	= TRUE;
+	m_bserverState		= TRUE;
+	m_bNetworkFlag		= TRUE;
+	m_dwLastTime		= 0;
 }
 
-NrcServer::~NrcServer(){};
+NrcServer::~NrcServer(){
+	if (m_hVARender != NULL) {
+	VADR_Close(m_hVARender);
+	m_hVARender = NULL;
+	}
+
+	if (m_uiSession != NRCAP_INVALID_SESSION) {
+		NcClose(m_uiSession); 
+		m_uiSession = NRCAP_INVALID_SESSION;
+	}
+	NcTerminate();
+};
 
 //登录视频服务器
 BOOL NrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCTSTR lpszPassword) {
 	CString szInfo;
-	
 	if (m_uiSession != NRCAP_INVALID_SESSION) {
 		Logout();
 		ASSERT(m_uiSession == NRCAP_INVALID_SESSION);
@@ -293,9 +295,9 @@ BOOL NrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCT
 	
 	int rv = 0;
 	// 初始化协议栈
-	if (g_bInitlized == FALSE) {
+	if (m_bInitlized == FALSE) {
 		rv = NcInitialize(128);
-		g_bInitlized = TRUE;
+		m_bInitlized = TRUE;
 	}
 	if (rv != NRCAP_SUCCESS) {
 		szInfo.Format(_T("初始化Nrcap协议栈失败！(0x%08x)"), rv);
@@ -472,13 +474,20 @@ BOOL NrcServer::StartPlay(LPVOID pChannel, HWND hWnd) {
 
 //退出登录
 void NrcServer::Logout() {
-	NcStopStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);	
-	VADR_StopPreview(m_hVARender);
-	NcClose(m_uiSession);
-	m_uiSession = NRCAP_INVALID_SESSION;
-	m_bPlaying = FALSE;
-	NcTerminate();
-	g_bInitlized = FALSE;
+	if (m_uiSession != NRCAP_INVALID_SESSION) {
+		NcStopStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);	
+		m_uiSession = NRCAP_INVALID_SESSION;
+		m_bPlaying = FALSE;
+		m_bInitlized = FALSE;
+		NcClose(m_uiSession);
+		NcTerminate();
+	}
+	if (m_hVARender != NULL) {
+		VADR_StopPreview(m_hVARender);
+		VADR_Close(m_hVARender);
+		m_hVARender = NULL;
+	}
+	
 }
 
 // 停止播放
@@ -498,7 +507,7 @@ BOOL NrcServer::StopPlay(LPVOID pChannel) {
 }
 
 BOOL NrcServer::GetNetworkState() {
-	return g_bNetWorkstation;
+	return m_bNetWorkstate;
 }
 
 LPCTSTR NrcServer::GetServerName() {
@@ -506,5 +515,5 @@ LPCTSTR NrcServer::GetServerName() {
 }
 
 BOOL NrcServer::GetServerState() {
-	return g_bServerStaion;
+	return m_bserverState;
 }

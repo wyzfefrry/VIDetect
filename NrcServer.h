@@ -7,10 +7,8 @@
 #include "NrcapError.h"
 #include "NrcappcSDK.h"
 #include "CServerStatusReport.h"
-//typedef void (*fnEventCallback)(int nEvent);
 
 class NrcServer : public CServerStatusReport{
-
 public:
 	NrcServer();
 	~NrcServer();
@@ -43,12 +41,16 @@ public:
 	HANDLE			m_hVAStorage;
 	HWND			m_hWnd;
 	NcGUID			m_guidServer;
+	int				m_nErrorCode;
+	BOOL			m_bInitlized;
+	DWORD			m_lastPlayingTime;
+	BOOL			m_bThread;
+	BOOL			m_bNetWorkstate;
+	BOOL			m_bserverState;
+	BOOL			m_bNetworkFlag;
+	DWORD			m_dwLastTime;
 private:
 	CStatic			m_stcPlayWnd;
-	LPCTSTR			m_lpszAddress;
-	LPCTSTR			m_lpszUserName;
-	LPCTSTR			m_lpszPassword;
-	int				m_nPort;
 	UINT			m_uiSession;
 	BOOL			m_bPlaying;
 	NcGUID			m_guidPM;
@@ -59,16 +61,5 @@ private:
 	LPVOID			pChannel;
 	UINT			m_uiSesson;
 	CString			ServerName;
-public:
-	UINT			g_bEvent;
-	UINT			g_uiEventID;
-	int				g_nErrorCode;
-	BOOL			g_bInitlized;
-	DWORD			g_lastPlayingTime;
-	BOOL			g_bThread;
-	BOOL			g_bNetWorkstation;
-	BOOL			g_bServerStaion;
-	BOOL			g_bNetworkFlag;
-	DWORD			g_dwLastTime;
 };
 

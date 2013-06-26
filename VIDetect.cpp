@@ -19,7 +19,7 @@ void fnCallBack(int nEvent, CString serverName) {
 			szInfo.Format(_T("%s : 网络恢复"), serverName);
 			AfxMessageBox(szInfo);
 			break;
-		case  0x4:
+		case 0x4:
 			szInfo.Format(_T("%s :服务器恢复连接"),serverName);
 			AfxMessageBox(szInfo);
 			break;
@@ -27,7 +27,6 @@ void fnCallBack(int nEvent, CString serverName) {
 			AfxMessageBox(_T("未知错误"));
 	}
 }
-
 
 void VIDetect::Register(CServerStatusReport* context) { 
 	m_listServers.push_back(context);
@@ -38,7 +37,9 @@ void VIDetect::StartDetect() {
 	BOOL bServerFlag = FALSE;
 	list<CServerStatusReport*>::iterator m_listServers_Iterator;
 	while(1) {
-		for (m_listServers_Iterator = m_listServers.begin(); m_listServers_Iterator != m_listServers.end(); m_listServers_Iterator++) {
+		for (m_listServers_Iterator = m_listServers.begin(); 
+			m_listServers_Iterator != m_listServers.end(); 
+			m_listServers_Iterator++) {
 			Sleep(2000);
 			if((*m_listServers_Iterator)->GetNetworkState() == FALSE && bNetworkFlag == FALSE) {
 				//网络中断
