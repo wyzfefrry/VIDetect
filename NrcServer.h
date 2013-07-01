@@ -8,18 +8,20 @@
 #include "NrcappcSDK.h"
 #include "CServerStatusReport.h"
 
-class NrcServer : public CServerStatusReport{
+#define NRCAP_INVALID_SESSION 0xFFFFFFFF
+
+class CNrcServer : public CServerStatusReport{
 public:
-	NrcServer();
-	~NrcServer();
+	CNrcServer();
+	~CNrcServer();
 	//登录视频服务器
 	BOOL Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCTSTR lpszPassword);
 	//设置时间通知回调函数
 	void SetEventCallback(void (*EventCallback)(int nEvent));
 	//播放视频
-	BOOL StartPlay(LPVOID pChannel, HWND hWnd);
+	BOOL StartPlay(LPVOID m_pChannel, HWND hWnd);
 	//停止播放视频
-	BOOL StopPlay(LPVOID pChannel);
+	BOOL StopPlay(LPVOID m_pChannel);
 	//退出视频服务器
 	void Logout();
 	//处理过滤事件函数
@@ -51,15 +53,22 @@ public:
 	DWORD			m_dwLastTime;
 private:
 	CStatic			m_stcPlayWnd;
-	UINT			m_uiSession;
 	BOOL			m_bPlaying;
 	NcGUID			m_guidPM;
 	NcGUID			m_guidCurInV;		//正在播放的视频GUID
 	NcGUID			m_guidCurInA;		//当前播放的视频绑定的音频的GUID
 	StreamType		m_st;				//流类型
 	TransferType	m_tt;				//流传输类型
-	LPVOID			pChannel;
+	LPVOID			m_pChannel;
 	UINT			m_uiSesson;
-	CString			ServerName;
+	CString			m_ServerName;
+public:
+	UINT				m_uiSession;
+	int					m_nServerGuid;
+	int					m_nServerDesc;	
+	int					m_nServerRsc;
+	NcGUIDDescription	m_guidDesc;
+	int					m_nStreamCapture;
+	int					m_nStartKeyFrame;
 };
 

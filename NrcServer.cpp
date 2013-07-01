@@ -1,17 +1,17 @@
 #include "stdafx.h"
 #include "WinInet.h"
 #include "windows.h"
-#include "NrcServer.h"
+#include "CNrcServer.h"
 #include "afxmt.h"
 #include "utils.h"
 #include <windows.h>
 
 #define WIDTHBYTES(bits)    (((bits) + 31) / 32 * 4)
-#define NRCAP_INVALID_SESSION 0xFFFFFFFF
+
 CEvent netRecover(FALSE,FALSE);
 
-UINT NrcServer::NetDetectRecover(LPVOID pParam) {
-	NrcServer* pDlg = (NrcServer*)pParam;
+UINT CNrcServer::NetDetectRecover(LPVOID pParam) {
+	CNrcServer* pDlg = (CNrcServer*)pParam;
 	while(1) {
 		netRecover.Lock();
 		if (pDlg->m_bNetworkFlag == FALSE) {
@@ -22,8 +22,8 @@ UINT NrcServer::NetDetectRecover(LPVOID pParam) {
 	}
 }
 
-UINT NrcServer::Run(LPVOID pParam) {
-	NrcServer* pDlg = (NrcServer*)pParam;
+UINT CNrcServer::Run(LPVOID pParam) {
+	CNrcServer* pDlg = (CNrcServer*)pParam;
 	while(1) {
 		DWORD currentTime = GetTickCount();	
 		if(currentTime - pDlg->m_lastPlayingTime > 5000) {
@@ -40,7 +40,7 @@ UINT NrcServer::Run(LPVOID pParam) {
 int __stdcall EventRecvCallBack(UINT uiSession, LPCNcEventInfo pEventInfo, int nErrorCode, void *context)
  {
 	
-	NrcServer *pDlg = (NrcServer*)context;
+	CNrcServer *pDlg = (CNrcServer*)context;
 	if (pEventInfo->uiEventID == 0x30001) {
 		pDlg->m_bserverState = FALSE;	
 	} else if (pEventInfo->uiEventID == 0x30002) {
@@ -49,14 +49,14 @@ int __stdcall EventRecvCallBack(UINT uiSession, LPCNcEventInfo pEventInfo, int n
 	return 0;
 }
 
-void NrcServer::StartThread() {
+void CNrcServer::StartThread() {
 	AfxBeginThread(Run, this);
 }
 
 int __stdcall StreamReadCallBack(UINT uiSession, NcGUID guid, StreamType streamType, 
 								 TransferType transferType, BYTE *pData, UINT uiLength, 
 								 LPCNcFrameInfo pFramInfo, int nErrorCode, void *context) {
-	NrcServer *pDlg = (NrcServer*)context;
+	CNrcServer *pDlg = (CNrcServer*)context;
 	if (pDlg->m_bThread == TRUE) {
 		pDlg->StartThread();
 		pDlg->m_bThread = FALSE;
@@ -121,16 +121,20 @@ extern int nPort;
 extern HWND hWnd;
 #pragma comment(lib,"Wininet.lib")
 
-UINT NrcServer::LocalNetDetect(LPVOID pParam) {
-	NrcServer *pDlg = (NrcServer *)pParam;
+UINT CNrcServer::LocalNetDetect(LPVOID pParam) {
+	CNrcServer *pDlg = (CNrcServer *)pParam;
 	DWORD dwFlag;
 	CString szInfo;
 	BOOL bFlag = TRUE;
 	while(1) {
 		if (InternetGetConnectedState(&dwFlag,0) == TRUE && bFlag == FALSE ) {
 			pDlg->Logout();
-			pDlg->Login(szIpAdr, nPort, szUsername,szPassword);
-			pDlg->StartPlay(LPVOID(1),hWnd);
+			if (pDlg->Login(szIpAdr, nPort, szUsername,szPassword) == TRUE) {
+				return 0;
+			}
+			if (pDlg->StartPlay(LPVOID(1),hWnd) == FALSE) {
+				return 0;
+			}
 			TRACE(_T("network is LINK\n"));
 			bFlag = TRUE;
 		} else if (InternetGetConnectedState(&dwFlag,0) == FALSE) {
@@ -143,7 +147,7 @@ UINT NrcServer::LocalNetDetect(LPVOID pParam) {
 
 void __stdcall DrawFun(HDC hDC, void *context)
 {
-	NrcServer *pDlg = (NrcServer *)context;
+	CNrcServer *pDlg = (CNrcServer *)context;
 	CDC dc;
 	if (dc.Attach(hDC))
 	{
@@ -168,7 +172,7 @@ void __stdcall DrawFun(HDC hDC, void *context)
 
 int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT uiTimeStamp, void *pContext)
 {
-		NrcServer* pDlg = (NrcServer*)pContext;
+		CNrcServer* pDlg = (CNrcServer*)pContext;
 	// 在这里可以直接将RGB数据存成BMP文件
 	// 每20秒存一副图片
 	if (uiTimeStamp - pDlg->m_dwLastTime > 600 * 1000)
@@ -258,13 +262,13 @@ int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT ui
 }
 
 //构造函数
-NrcServer::NrcServer() {
+CNrcServer::CNrcServer() {
 	m_bPlaying			= FALSE;
 	m_st				= stream_realtime;
 	m_tt				= transfer_tcp;
 	m_uiSession			= NRCAP_INVALID_SESSION;
 	m_bInitlized		= FALSE;
-	ServerName			= _T("NRCSERVER");
+	m_ServerName			= _T("NrcServer");
 	m_bThread			= FALSE;
 	m_bNetWorkstate	= TRUE;
 	m_bserverState		= TRUE;
@@ -272,7 +276,7 @@ NrcServer::NrcServer() {
 	m_dwLastTime		= 0;
 }
 
-NrcServer::~NrcServer(){
+CNrcServer::~CNrcServer(){
 	if (m_hVARender != NULL) {
 	VADR_Close(m_hVARender);
 	m_hVARender = NULL;
@@ -286,7 +290,7 @@ NrcServer::~NrcServer(){
 };
 
 //登录视频服务器
-BOOL NrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCTSTR lpszPassword) {
+BOOL CNrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCTSTR lpszPassword) {
 	CString szInfo;
 	if (m_uiSession != NRCAP_INVALID_SESSION) {
 		Logout();
@@ -375,55 +379,58 @@ BOOL NrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPCT
 		szInfo.Format(_T("初始存储库失败!"));
 		AfxMessageBox(szInfo);
 	}
-	LPVOID pChannel = LPVOID(1);
+	LPVOID m_pChannel = LPVOID(1);
 	return TRUE;
 }
 
 //播放视屏
-BOOL NrcServer::StartPlay(LPVOID pChannel, HWND hWnd) {
+BOOL CNrcServer::StartPlay(LPVOID m_pChannel, HWND hWnd) {
 	CString szInfo;
-	if (pChannel != (LPVOID)(1)) {
+	if (m_pChannel != (LPVOID)(1)) {
 		return FALSE;
 	}
 	if (m_bPlaying == FALSE) {
-		if (m_uiSession == NRCAP_INVALID_SESSION) {
+		//把类中的对话框提示放到了调用的地方，作用：应该是对话框会阻塞公共类的程序吧
+		/*if (m_uiSession == NRCAP_INVALID_SESSION) {
 			AfxMessageBox(_T("请首先连接一个视频服务器！"));
 			return FALSE;
-		}
+		}*/ 
 		//获取视频服务器的GUID
-		int rv = Station_GetStationGUID(m_uiSession, &m_guidServer);
-		if (rv != NRCAP_SUCCESS) {
+		m_nServerGuid = Station_GetStationGUID(m_uiSession, &m_guidServer);
+	/*	if (m_nServerGuid != NRCAP_SUCCESS) {
 			NcClose(m_uiSession);
 			szInfo.Format(_T("获取并创建资源树失败!(0x%08x)"), rv);
 			AfxMessageBox(szInfo);
 			return FALSE;
-		}
+		}*/
 		//获取资源描述
-		NcGUIDDescription guidDesc;
-		rv = Resource_GetGUIDDescription(m_uiSession, m_guidServer, &guidDesc);
-		if (rv != NRCAP_SUCCESS) {
-			TRACE(_T("Resource_GetGUIDDescription error : 0x%08x\n"), rv);
+		
+		m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, m_guidServer, &m_guidDesc);
+		/*if (m_nServerDesc != NRCAP_SUCCESS) {
+			AfxMessageBox(_T("Resource_GetGUIDDescription error : 0x%08x\n"), rv);
 			return FALSE;  
-		}
+		}*/
 		// 获得服务器下的资源
 		NcGUIDArray gaRsc;
-		rv = Station_GetChildrenGUIDArray(m_uiSession, m_guidServer, &gaRsc);
-		if (rv != NRCAP_SUCCESS) {
-			TRACE(_T("Station_GetChildrenGUIDArray error : 0x%08x\n"), rv);
+		m_nServerRsc = Station_GetChildrenGUIDArray(m_uiSession, m_guidServer, &gaRsc);
+		/*if (m_nServerRsc != NRCAP_SUCCESS) {
+			szInfo.Format("Station_GetChildrenGUIDArray error : 0x%08x\n"), rv);
+			AfxMessageBox(szInfo);
 			return FALSE;
-		}
+		}*/
 		BYTE *pGUID = new NcGUID;
 		memcpy(pGUID, m_guidServer, sizeof(NcGUID));
 		BOOL bFound = FALSE;
+		int rv = 0;
 		for (int i = 0; i < (int)gaRsc.uiNum; i++) {
 			//通过此方法可以得到某个GUID对应的资源的信息。
-			rv = Resource_GetGUIDDescription(m_uiSession, gaRsc.ga[i], &guidDesc);
-			if (rv != NRCAP_SUCCESS) {
-				TRACE(_T("Resource_GetGUIDDescription error : 0x%08x\n"), rv);
+			m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, gaRsc.ga[i], &m_guidDesc);
+			/*if (m_nServerDesc != NRCAP_SUCCESS) {
+				TRACE(_T("Resource_GetGUIDDescription error : 0x%08x\n"), m_nServerDesc);
 				return FALSE;
-			}
-			if (guidDesc.rscType == rsc_input_video) {
-				memcpy(m_guidPM,guidDesc.guid, sizeof(NcGUID));
+			}*/
+			if (m_guidDesc.rscType == rsc_input_video) {
+				memcpy(m_guidPM,m_guidDesc.guid, sizeof(NcGUID));
 				bFound = TRUE;
 				break;
 			}
@@ -432,31 +439,31 @@ BOOL NrcServer::StartPlay(LPVOID pChannel, HWND hWnd) {
 			return FALSE;
 		}
 		NcGUID *guid = (NcGUID*)m_guidPM;
-		rv = Resource_GetGUIDDescription(m_uiSession, *guid, &guidDesc);
+		m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, *guid, &m_guidDesc);
 		if (rv != NRCAP_SUCCESS) {
-			szInfo.Format(_T("获得资源GUID描述失败!(0x%08x)"), rv);
+			szInfo.Format(_T("获得资源GUID描述失败!(0x%08x)"), m_nServerDesc);
 			AfxMessageBox(szInfo);
 			return  FALSE;
 		}
-		if (guidDesc.rscType != rsc_input_video) {
+	/*	if (m_guidDesc.rscType != rsc_input_video) {
 			szInfo.Format(_T("请选择一路输入视频信号!"));
 			AfxMessageBox(szInfo);
 			return FALSE ;
-		}
+		}*/
 		memcpy(m_guidCurInV, guid, sizeof(NcGUID));
 		// 启动视频数据截取
-		rv = NcStartStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);
-		if (rv != NRCAP_SUCCESS) {
-			AfxMessageBox(_T("NcStartStreamCapture!(0x%08x)"), rv);
+		m_nStreamCapture = NcStartStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);
+		/*if (m_nStreamCapture != NRCAP_SUCCESS) {
+			AfxMessageBox(_T("NcStartStreamCapture!(0x%08x)"), m_nStreamCapture);
 			return FALSE ;
-		}
+		}*/
 		//请求发送I帧
-		rv = InputVideo_StartKeyFrame(m_uiSession, m_guidCurInV, m_st);
-		if (rv != NRCAP_SUCCESS) {
-			szInfo.Format(_T("InputVideo_StartKeyFrame!(0x%08x)\n"), rv);
-			TRACE(szInfo);
+		m_nStartKeyFrame = InputVideo_StartKeyFrame(m_uiSession, m_guidCurInV, m_st);
+	/*	if (m_nStartKeyFrame; != NRCAP_SUCCESS) {
+			szInfo.Format(_T("InputVideo_StartKeyFrame!(0x%08x)\n"), m_nStartKeyFrame;);
+			AfxMessageBox(szInfo);
 			return FALSE ;
-		}
+		}*/
 		delete []pGUID;
 		// 设置播放窗口 设置播放位置
 		VADR_SetPlayWnd(m_hVARender, hWnd, TRUE);
@@ -473,7 +480,7 @@ BOOL NrcServer::StartPlay(LPVOID pChannel, HWND hWnd) {
 }
 
 //退出登录
-void NrcServer::Logout() {
+void CNrcServer::Logout() {
 	if (m_uiSession != NRCAP_INVALID_SESSION) {
 		NcStopStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);	
 		m_uiSession = NRCAP_INVALID_SESSION;
@@ -487,12 +494,11 @@ void NrcServer::Logout() {
 		VADR_Close(m_hVARender);
 		m_hVARender = NULL;
 	}
-	
 }
 
 // 停止播放
-BOOL NrcServer::StopPlay(LPVOID pChannel) {
-	if (1 != (int)(pChannel)) {
+BOOL CNrcServer::StopPlay(LPVOID m_pChannel) {
+	if (1 != (int)(m_pChannel)) {
 		return FALSE;
 	}
 	//停止数据截取
@@ -506,14 +512,14 @@ BOOL NrcServer::StopPlay(LPVOID pChannel) {
 	return FALSE;
 }
 
-BOOL NrcServer::GetNetworkState() {
+BOOL CNrcServer::GetNetworkState() {
 	return m_bNetWorkstate;
 }
 
-LPCTSTR NrcServer::GetServerName() {
-	return ServerName;
+LPCTSTR CNrcServer::GetServerName() {
+	return m_ServerName;
 }
 
-BOOL NrcServer::GetServerState() {
+BOOL CNrcServer::GetServerState() {
 	return m_bserverState;
 }

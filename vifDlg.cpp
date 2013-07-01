@@ -41,6 +41,7 @@ CvifDlg::CvifDlg(CWnd* pParent /*=NULL*/)
 , m_userName(_T("admin"))
 , m_passWord(_T(""))
 , m_nPort(_T("3645"))
+, m_bFlag(TRUE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -444,17 +445,12 @@ CString	szIpAdr;
 int nPort;
 void CvifDlg::OnBtnLogin() {
 	UpdateData(TRUE);
-	
-	/*CString szUsername;
-	CString szPassword;
-	CString	szIpAdr;
-	CString	szPort;*/
 	CString	szPort;
 	GetDlgItemText(IDC_USERNAME, szUsername);
 	GetDlgItemText(IDC_PSW, szPassword);
 	GetDlgItemText(IDC_IPADDR, szIpAdr);
 	GetDlgItemText(IDC_PORT, szPort);
-	/*int*/ nPort = _wtoi(szPort);
+	nPort = _ttoi(szPort);
 	if (_tcscmp(szUsername, _T("admin")) != 0 || _tcscmp(szPassword,_T("")) != 0) {
 		AfxMessageBox(_T("登录失败：用户名或密码不对"));
 		return ;
@@ -467,9 +463,45 @@ void CvifDlg::OnBtnLogin() {
 }
 HWND hWnd = NULL;
 void CvifDlg::OnBtnPlaying() {
+	CString szInfo;
 	CWnd *pWnd = GetDlgItem(IDC_PICCAM5); 
-	/*HWND*/ hWnd = pWnd->GetSafeHwnd();
+	hWnd = pWnd->GetSafeHwnd();
 	m_NrcServer.StartPlay(LPVOID(1), hWnd);
+	if (m_NrcServer.m_uiSession == NRCAP_INVALID_SESSION) {
+		AfxMessageBox(_T("请首先连接一个视频服务器！"));
+		return;
+	}
+	if (m_NrcServer.m_nServerGuid != NRCAP_SUCCESS) {
+		NcClose(m_NrcServer.m_uiSession);
+		szInfo.Format(_T("获取并创建资源树失败!(0x%08x)"), m_NrcServer.m_uiSession);
+		AfxMessageBox(szInfo);
+		return;
+	}
+	if (m_NrcServer.m_nServerDesc != NRCAP_SUCCESS) {
+		szInfo.Format(_T("Resource_GetGUIDDescription error : 0x%08x\n"), m_NrcServer.m_nServerDesc);
+		AfxMessageBox(szInfo);
+		return;  
+	}
+	if (m_NrcServer.m_nServerRsc != NRCAP_SUCCESS) {
+		szInfo.Format(_T("Station_GetChildrenGUIDArray error : 0x%08x\n"), m_NrcServer.m_nServerRsc);
+		AfxMessageBox(szInfo);
+		return;
+	}
+	if (m_NrcServer.m_guidDesc.rscType != rsc_input_video) {
+		szInfo.Format(_T("请选择一路输入视频信号!"));
+		AfxMessageBox(szInfo);
+		return;
+	}
+	if (m_NrcServer.m_nStreamCapture != NRCAP_SUCCESS) {
+		AfxMessageBox(_T("NcStartStreamCapture!(0x%08x)"), m_NrcServer.m_nStreamCapture);
+		return;
+	}
+	if (m_NrcServer.m_nStartKeyFrame != NRCAP_SUCCESS) {
+		szInfo.Format(_T("InputVideo_StartKeyFrame!(0x%08x)\n"), m_NrcServer.m_nStartKeyFrame);
+		AfxMessageBox(szInfo);
+		return;
+	}
+	
 
 }
 
@@ -482,19 +514,18 @@ void CvifDlg::OnBtnStop() {
 	m_NrcServer.StopPlay(LPVOID(1));
 }
 
-UINT CvifDlg::startVetect(LPVOID pParam) {
+UINT CvifDlg::Vetect(LPVOID pParam) {
 	LPTHREADINFO pTemp = (LPTHREADINFO)pParam;
 	pTemp->detectClass->Register(pTemp->serverClass);
 	pTemp->detectClass->StartDetect();
 	return 0;
 }
-
 BOOL bFlag = TRUE;
 void CvifDlg::OnBtnVIDetect() {
-		if (bFlag == TRUE) {
-		bFlag = FALSE;
+		if (m_bFlag == TRUE) {
+		m_bFlag = FALSE;
 		threadInfo.serverClass = &m_NrcServer;
 		threadInfo.detectClass = &m_VIDetect;
-		AfxBeginThread(startVetect,&threadInfo);
+		AfxBeginThread(Vetect,&threadInfo);
 	}
 }

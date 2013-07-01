@@ -12,7 +12,7 @@
 #include "FrameMatcher.h"
 #include "SystemHelper.h"
 #include "afxwin.h"
-#include "NrcServer.h"
+#include "CNrcServer.h"
 #include "VIDetect.h"
 
 #define VW_TIMEMILLISECONDS		30000
@@ -20,7 +20,7 @@
 #define HR_TIMEPALY2			2992
 
 typedef struct _THREADINFO{
-	NrcServer* serverClass;
+	CNrcServer* serverClass;
 	VIDetect*  detectClass;
 }THREADINFO, *LPTHREADINFO;
 
@@ -57,11 +57,11 @@ public:
 	afx_msg void OnBtnLogout();
 	afx_msg void OnBtnStop();
 public:
-	static UINT	startVetect(LPVOID pParam);
+	static UINT	Vetect(LPVOID pParam);
 private:
 	CVideoStream	    m_VideoStream;
 	CFrameMatcher	    m_FrameMatcher;
-	NrcServer			m_NrcServer;
+	CNrcServer			m_NrcServer;
 	VIDetect		    m_VIDetect;
 protected:
 	CComboBox	m_cboTarget;
@@ -69,10 +69,12 @@ protected:
 	CMenu		m_MainMenu;
 public:
 	afx_msg void OnBtnVIDetect();
-	CString m_ipAddr;
-	CString m_userName;
-	CString m_passWord;
-	CString m_nPort;
+	CString		m_ipAddr;
+	CString		m_userName;
+	CString		m_passWord;
+	CString		m_nPort;
+	BOOL		m_bFlag;
+
 };
 
 
