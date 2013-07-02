@@ -13,6 +13,7 @@
 #define new DEBUG_NEW
 #endif
 
+
 class CAboutDlg : public CDialog
 {
 public:
@@ -37,12 +38,14 @@ BEGIN_MESSAGE_MAP(CAboutDlg, CDialog)
 END_MESSAGE_MAP()
 
 CvifDlg::CvifDlg(CWnd* pParent /*=NULL*/)
-: CDialog(CvifDlg::IDD, pParent) , m_ipAddr(_T("172.168.1.101"))
+: CDialog(CvifDlg::IDD, pParent)
+, m_ipAddr(_T("172.168.1.101"))
 , m_userName(_T("admin"))
 , m_passWord(_T(""))
-, m_nPort(_T("3645"))
+, m_szPort(_T("3645"))
 , m_bFlag(TRUE)
 {
+	memset(&m_threadInfo, 0, sizeof(m_threadInfo));
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
@@ -54,7 +57,7 @@ void CvifDlg::DoDataExchange(CDataExchange* pDX) {
 	DDV_MaxChars(pDX, m_ipAddr,15);
 	DDX_Text(pDX, IDC_USERNAME, m_userName);
 	DDX_Text(pDX, IDC_PSW, m_passWord);
-	DDX_Text(pDX, IDC_PORT, m_nPort);
+	DDX_Text(pDX, IDC_PORT, m_szPort);
 }
 
 BEGIN_MESSAGE_MAP(CvifDlg, CDialog)
@@ -64,7 +67,6 @@ BEGIN_MESSAGE_MAP(CvifDlg, CDialog)
 	//}}AFX_MbGreen_MAP
 	ON_BN_CLICKED(IDC_BTNEXECUTE, &CvifDlg::OnBtnExecute)
 	ON_BN_CLICKED(IDC_BTNBROWSER, &CvifDlg::OnBtnBrowser)
-//	ON_BN_CLICKED(IDC_BTNPLAY, &CvifDlg::OnBtnPlay)
 	ON_BN_CLICKED(IDC_BTNNEXT, &CvifDlg::OnBtnNext)
 	ON_CBN_CLOSEUP(IDC_CBOSOURCE, &CvifDlg::OnCloseUpCboSource)
 	ON_CBN_CLOSEUP(IDC_CBOTARGET, &CvifDlg::OnCloseUpCboTarget)
@@ -76,7 +78,6 @@ BEGIN_MESSAGE_MAP(CvifDlg, CDialog)
 	ON_BN_CLICKED(IDC_BUTTON6, &CvifDlg::OnBtnStop)
 	ON_BN_CLICKED(IDC_BUTTON8, &CvifDlg::OnBtnVIDetect)
 END_MESSAGE_MAP()
-
 
 // CvifDlg 消息处理程序
 BOOL CvifDlg::OnInitDialog()
@@ -112,13 +113,6 @@ BOOL CvifDlg::OnInitDialog()
 		CString szFilePath = theApp->GetRootPath()+_T("\\data\\new.avi");
 		SetDlgItemText(IDC_EDITFILEPATH,szFilePath);
 	}
-	/*SetDlgItemText(IDC_USERNAME, _T("admin"));
-	SetDlgItemText(IDC_PSW, _T(""));
-	SetDlgItemText(IDC_IPADDR, _T("172.168.1.101"));
-	SetDlgItemText(IDC_PORT, _T("3645"));*/
-	
-	
-
 	return TRUE;  
 }
 
@@ -501,31 +495,34 @@ void CvifDlg::OnBtnPlaying() {
 		AfxMessageBox(szInfo);
 		return;
 	}
-	
-
 }
 
 void CvifDlg::OnBtnLogout() {
 	m_NrcServer.Logout();
 }
 
-
 void CvifDlg::OnBtnStop() {
 	m_NrcServer.StopPlay(LPVOID(1));
 }
 
-UINT CvifDlg::Vetect(LPVOID pParam) {
-	LPTHREADINFO pTemp = (LPTHREADINFO)pParam;
-	pTemp->detectClass->Register(pTemp->serverClass);
-	pTemp->detectClass->StartDetect();
+UINT CvifDlg::Detect(LPVOID pParam) {
+	LPTHREADINFO lpThreadInfo = (LPTHREADINFO)pParam;
+	//把需要检测的服务器加入到检测链表中
+	lpThreadInfo->detectClass->Register(lpThreadInfo->serverClass);
+	//开始检测
+	lpThreadInfo->detectClass->StartDetect();
 	return 0;
 }
-BOOL bFlag = TRUE;
+
+void CvifDlg::AddDetectServer() {
+	m_threadInfo[0].serverClass = &m_NrcServer;
+	m_threadInfo[0].detectClass = &m_VIDetect;
+}
+
 void CvifDlg::OnBtnVIDetect() {
 		if (m_bFlag == TRUE) {
 		m_bFlag = FALSE;
-		threadInfo.serverClass = &m_NrcServer;
-		threadInfo.detectClass = &m_VIDetect;
-		AfxBeginThread(Vetect,&threadInfo);
+		AddDetectServer();
+		AfxBeginThread(Detect,&m_threadInfo[0]);
 	}
 }

@@ -16,7 +16,7 @@ UINT CNrcServer::NetDetectRecover(LPVOID pParam) {
 		netRecover.Lock();
 		if (pDlg->m_bNetworkFlag == FALSE) {
 			pDlg->m_bNetWorkstate = TRUE;
-			pDlg->m_bNetworkFlag = TRUE;
+			pDlg->m_bNetworkFlag  = TRUE;
 			pDlg->m_bThread = TRUE;
 		}
 	}
@@ -26,7 +26,8 @@ UINT CNrcServer::Run(LPVOID pParam) {
 	CNrcServer* pDlg = (CNrcServer*)pParam;
 	while(1) {
 		DWORD currentTime = GetTickCount();	
-		if(currentTime - pDlg->m_lastPlayingTime > 5000) {
+		signed int intervalTime = currentTime - pDlg->m_lastPlayingTime;
+		if(intervalTime > 5000) {
 			pDlg->m_bNetWorkstate = FALSE;
 			Sleep(1000);
 			pDlg->m_bNetworkFlag = FALSE;
@@ -70,7 +71,6 @@ int __stdcall StreamReadCallBack(UINT uiSession, NcGUID guid, StreamType streamT
 	GetModuleFileName(NULL, szPath, 1024);
 	wchar_t *p = wcsrchr(szPath, '\\');
 	*p = '\0';
-	//wchar_t szFile[_MAX_PATH] = _T("");
 	if (pFramInfo->ver == frame_video)
 	{
 #ifdef _OUTPUT_FRAME_TIMESTAMP
@@ -129,16 +129,10 @@ UINT CNrcServer::LocalNetDetect(LPVOID pParam) {
 	while(1) {
 		if (InternetGetConnectedState(&dwFlag,0) == TRUE && bFlag == FALSE ) {
 			pDlg->Logout();
-			if (pDlg->Login(szIpAdr, nPort, szUsername,szPassword) == TRUE) {
-				return 0;
-			}
-			if (pDlg->StartPlay(LPVOID(1),hWnd) == FALSE) {
-				return 0;
-			}
-			TRACE(_T("network is LINK\n"));
+			ASSERT(pDlg->Login(szIpAdr, nPort, szUsername,szPassword));
+			ASSERT(pDlg->StartPlay(LPVOID(1),hWnd));
 			bFlag = TRUE;
 		} else if (InternetGetConnectedState(&dwFlag,0) == FALSE) {
-			TRACE(_T("network is OFFLINE\n"));	
 			bFlag = FALSE;
 		}
 		Sleep(1000);
@@ -190,13 +184,10 @@ int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT ui
 		long impcol = 0;
 		char m1 = 'B';
 		char m2 = 'M';
-		
 		DWORD widthDW = WIDTHBYTES(ImgWidth * 24);
-		
 		long bmfsize = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) 
 			+ ImgWidth * ImgHeight;	
 		long byteswritten=0;
-
 		BITMAPINFOHEADER header;
 		header.biSize = 40; 						// header size
 		header.biWidth = ImgWidth;
@@ -262,31 +253,28 @@ int __stdcall VideoDecode(UCHAR *pImg[3], UINT ImgWidth, UINT ImgHeight, UINT ui
 }
 
 //构造函数
-CNrcServer::CNrcServer() {
-	m_bPlaying			= FALSE;
-	m_st				= stream_realtime;
-	m_tt				= transfer_tcp;
-	m_uiSession			= NRCAP_INVALID_SESSION;
-	m_bInitlized		= FALSE;
-	m_ServerName			= _T("NrcServer");
-	m_bThread			= FALSE;
-	m_bNetWorkstate	= TRUE;
-	m_bserverState		= TRUE;
-	m_bNetworkFlag		= TRUE;
-	m_dwLastTime		= 0;
+CNrcServer::CNrcServer():
+m_hVARender(NULL),
+m_uiSession(NRCAP_INVALID_SESSION),
+m_bPlaying(FALSE),
+m_st(stream_realtime),
+m_tt(transfer_tcp),
+m_bInitlized(FALSE),
+m_ServerName( _T("NrcServer")),
+m_bThread(FALSE),
+m_bNetWorkstate(TRUE),
+m_bserverState(TRUE),
+m_bNetworkFlag(TRUE),
+m_dwLastTime(0) {
+
 }
 
 CNrcServer::~CNrcServer(){
-	if (m_hVARender != NULL) {
-	VADR_Close(m_hVARender);
-	m_hVARender = NULL;
-	}
-
+	
 	if (m_uiSession != NRCAP_INVALID_SESSION) {
 		NcClose(m_uiSession); 
 		m_uiSession = NRCAP_INVALID_SESSION;
 	}
-	NcTerminate();
 };
 
 //登录视频服务器
@@ -296,7 +284,6 @@ BOOL CNrcServer::Login(LPCTSTR lpszAddress, int nPort, LPCTSTR lpszUserName, LPC
 		Logout();
 		ASSERT(m_uiSession == NRCAP_INVALID_SESSION);
 	}
-	
 	int rv = 0;
 	// 初始化协议栈
 	if (m_bInitlized == FALSE) {
@@ -390,46 +377,21 @@ BOOL CNrcServer::StartPlay(LPVOID m_pChannel, HWND hWnd) {
 		return FALSE;
 	}
 	if (m_bPlaying == FALSE) {
-		//把类中的对话框提示放到了调用的地方，作用：应该是对话框会阻塞公共类的程序吧
-		/*if (m_uiSession == NRCAP_INVALID_SESSION) {
-			AfxMessageBox(_T("请首先连接一个视频服务器！"));
-			return FALSE;
-		}*/ 
-		//获取视频服务器的GUID
-		m_nServerGuid = Station_GetStationGUID(m_uiSession, &m_guidServer);
-	/*	if (m_nServerGuid != NRCAP_SUCCESS) {
-			NcClose(m_uiSession);
-			szInfo.Format(_T("获取并创建资源树失败!(0x%08x)"), rv);
-			AfxMessageBox(szInfo);
-			return FALSE;
-		}*/
-		//获取资源描述
-		
-		m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, m_guidServer, &m_guidDesc);
-		/*if (m_nServerDesc != NRCAP_SUCCESS) {
-			AfxMessageBox(_T("Resource_GetGUIDDescription error : 0x%08x\n"), rv);
-			return FALSE;  
-		}*/
-		// 获得服务器下的资源
-		NcGUIDArray gaRsc;
-		m_nServerRsc = Station_GetChildrenGUIDArray(m_uiSession, m_guidServer, &gaRsc);
-		/*if (m_nServerRsc != NRCAP_SUCCESS) {
-			szInfo.Format("Station_GetChildrenGUIDArray error : 0x%08x\n"), rv);
-			AfxMessageBox(szInfo);
-			return FALSE;
-		}*/
-		BYTE *pGUID = new NcGUID;
-		memcpy(pGUID, m_guidServer, sizeof(NcGUID));
-		BOOL bFound = FALSE;
-		int rv = 0;
-		for (int i = 0; i < (int)gaRsc.uiNum; i++) {
-			//通过此方法可以得到某个GUID对应的资源的信息。
-			m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, gaRsc.ga[i], &m_guidDesc);
-			/*if (m_nServerDesc != NRCAP_SUCCESS) {
-				TRACE(_T("Resource_GetGUIDDescription error : 0x%08x\n"), m_nServerDesc);
-				return FALSE;
-			}*/
-			if (m_guidDesc.rscType == rsc_input_video) {
+	//获取视频服务器的GUID
+	m_nServerGuid = Station_GetStationGUID(m_uiSession, &m_guidServer);
+	//获取资源描述
+	m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, m_guidServer, &m_guidDesc);
+	// 获得服务器下的资源
+	NcGUIDArray gaRsc;
+	m_nServerRsc = Station_GetChildrenGUIDArray(m_uiSession, m_guidServer, &gaRsc);
+	BYTE *pGUID = new NcGUID;
+	memcpy(pGUID, m_guidServer, sizeof(NcGUID));
+	BOOL bFound = FALSE;
+	int rv = 0;
+	for (int i = 0; i < (int)gaRsc.uiNum; i++) {
+		//通过此方法可以得到某个GUID对应的资源的信息。
+		m_nServerDesc = Resource_GetGUIDDescription(m_uiSession, gaRsc.ga[i], &m_guidDesc);
+		if (m_guidDesc.rscType == rsc_input_video) {
 				memcpy(m_guidPM,m_guidDesc.guid, sizeof(NcGUID));
 				bFound = TRUE;
 				break;
@@ -445,25 +407,11 @@ BOOL CNrcServer::StartPlay(LPVOID m_pChannel, HWND hWnd) {
 			AfxMessageBox(szInfo);
 			return  FALSE;
 		}
-	/*	if (m_guidDesc.rscType != rsc_input_video) {
-			szInfo.Format(_T("请选择一路输入视频信号!"));
-			AfxMessageBox(szInfo);
-			return FALSE ;
-		}*/
 		memcpy(m_guidCurInV, guid, sizeof(NcGUID));
 		// 启动视频数据截取
 		m_nStreamCapture = NcStartStreamCapture(m_uiSession, m_guidCurInV, m_st, m_tt);
-		/*if (m_nStreamCapture != NRCAP_SUCCESS) {
-			AfxMessageBox(_T("NcStartStreamCapture!(0x%08x)"), m_nStreamCapture);
-			return FALSE ;
-		}*/
 		//请求发送I帧
 		m_nStartKeyFrame = InputVideo_StartKeyFrame(m_uiSession, m_guidCurInV, m_st);
-	/*	if (m_nStartKeyFrame; != NRCAP_SUCCESS) {
-			szInfo.Format(_T("InputVideo_StartKeyFrame!(0x%08x)\n"), m_nStartKeyFrame;);
-			AfxMessageBox(szInfo);
-			return FALSE ;
-		}*/
 		delete []pGUID;
 		// 设置播放窗口 设置播放位置
 		VADR_SetPlayWnd(m_hVARender, hWnd, TRUE);
