@@ -42,7 +42,7 @@ CvifDlg::CvifDlg(CWnd* pParent /*=NULL*/)
 , m_ipAddr(_T("172.168.1.101"))
 , m_userName(_T("admin"))
 , m_passWord(_T(""))
-, m_szPort(_T("3645"))
+, m_Port(_T("3645"))
 , m_bFlag(TRUE)
 {
 	memset(&m_threadInfo, 0, sizeof(m_threadInfo));
@@ -57,7 +57,7 @@ void CvifDlg::DoDataExchange(CDataExchange* pDX) {
 	DDV_MaxChars(pDX, m_ipAddr,15);
 	DDX_Text(pDX, IDC_USERNAME, m_userName);
 	DDX_Text(pDX, IDC_PSW, m_passWord);
-	DDX_Text(pDX, IDC_PORT, m_szPort);
+	DDX_Text(pDX, IDC_PORT, m_Port);
 }
 
 BEGIN_MESSAGE_MAP(CvifDlg, CDialog)
@@ -99,7 +99,7 @@ BOOL CvifDlg::OnInitDialog()
 
 	SetIcon(m_hIcon, TRUE);		
 	SetIcon(m_hIcon, FALSE);	
-
+	setlocale (LC_ALL, "chs" );
 	SkinH_Attach();
 	SetWindowText(_T("VIF - 安联烟火识别系统"));
  
@@ -435,8 +435,8 @@ void CvifDlg::OnBtnRecord()
 CString szUsername;
 CString szPassword;
 CString	szIpAdr;
+int		nPort;
 
-int nPort;
 void CvifDlg::OnBtnLogin() {
 	UpdateData(TRUE);
 	CString	szPort;
@@ -455,45 +455,16 @@ void CvifDlg::OnBtnLogin() {
 	}
 	m_NrcServer.Login(szIpAdr, nPort, szUsername,szPassword);
 }
+
 HWND hWnd = NULL;
 void CvifDlg::OnBtnPlaying() {
 	CString szInfo;
 	CWnd *pWnd = GetDlgItem(IDC_PICCAM5); 
-	hWnd = pWnd->GetSafeHwnd();
-	m_NrcServer.StartPlay(LPVOID(1), hWnd);
-	if (m_NrcServer.m_uiSession == NRCAP_INVALID_SESSION) {
-		AfxMessageBox(_T("请首先连接一个视频服务器！"));
-		return;
+	if (pWnd != NULL) {
+		hWnd = pWnd->GetSafeHwnd();
 	}
-	if (m_NrcServer.m_nServerGuid != NRCAP_SUCCESS) {
-		NcClose(m_NrcServer.m_uiSession);
-		szInfo.Format(_T("获取并创建资源树失败!(0x%08x)"), m_NrcServer.m_uiSession);
-		AfxMessageBox(szInfo);
-		return;
-	}
-	if (m_NrcServer.m_nServerDesc != NRCAP_SUCCESS) {
-		szInfo.Format(_T("Resource_GetGUIDDescription error : 0x%08x\n"), m_NrcServer.m_nServerDesc);
-		AfxMessageBox(szInfo);
-		return;  
-	}
-	if (m_NrcServer.m_nServerRsc != NRCAP_SUCCESS) {
-		szInfo.Format(_T("Station_GetChildrenGUIDArray error : 0x%08x\n"), m_NrcServer.m_nServerRsc);
-		AfxMessageBox(szInfo);
-		return;
-	}
-	if (m_NrcServer.m_guidDesc.rscType != rsc_input_video) {
-		szInfo.Format(_T("请选择一路输入视频信号!"));
-		AfxMessageBox(szInfo);
-		return;
-	}
-	if (m_NrcServer.m_nStreamCapture != NRCAP_SUCCESS) {
-		AfxMessageBox(_T("NcStartStreamCapture!(0x%08x)"), m_NrcServer.m_nStreamCapture);
-		return;
-	}
-	if (m_NrcServer.m_nStartKeyFrame != NRCAP_SUCCESS) {
-		szInfo.Format(_T("InputVideo_StartKeyFrame!(0x%08x)\n"), m_NrcServer.m_nStartKeyFrame);
-		AfxMessageBox(szInfo);
-		return;
+	if (pWnd != NULL) {
+		m_NrcServer.StartPlay(" ", hWnd);
 	}
 }
 
@@ -502,14 +473,12 @@ void CvifDlg::OnBtnLogout() {
 }
 
 void CvifDlg::OnBtnStop() {
-	m_NrcServer.StopPlay(LPVOID(1));
+	m_NrcServer.StopPlay(" ");
 }
 
 UINT CvifDlg::Detect(LPVOID pParam) {
 	LPTHREADINFO lpThreadInfo = (LPTHREADINFO)pParam;
-	//把需要检测的服务器加入到检测链表中
 	lpThreadInfo->detectClass->Register(lpThreadInfo->serverClass);
-	//开始检测
 	lpThreadInfo->detectClass->StartDetect();
 	return 0;
 }
@@ -520,7 +489,7 @@ void CvifDlg::AddDetectServer() {
 }
 
 void CvifDlg::OnBtnVIDetect() {
-		if (m_bFlag == TRUE) {
+	if (m_bFlag == TRUE) {
 		m_bFlag = FALSE;
 		AddDetectServer();
 		AfxBeginThread(Detect,&m_threadInfo[0]);

@@ -19,9 +19,9 @@ public:
 	//设置时间通知回调函数
 	void SetEventCallback(void (*EventCallback)(int nEvent));
 	//播放视频
-	BOOL StartPlay(LPVOID m_pChannel, HWND hWnd);
+	BOOL StartPlay(LPVOID pChannel, HWND hWnd);
 	//停止播放视频
-	BOOL StopPlay(LPVOID m_pChannel);
+	BOOL StopPlay(LPVOID pChannel);
 	//退出视频服务器
 	void Logout();
 	//处理过滤事件函数
@@ -39,36 +39,29 @@ public:
 	//获取服务器连接状态
 	BOOL			GetServerState();
 public:
-	HANDLE			m_hVARender;
-	HANDLE			m_hVAStorage;
-	HWND			m_hWnd;
-	NcGUID			m_guidServer;
-	int				m_nErrorCode;
-	BOOL			m_bInitlized;
-	DWORD			m_lastPlayingTime;
-	BOOL			m_bThread;
-	BOOL			m_bNetWorkstate;
-	BOOL			m_bserverState;
-	BOOL			m_bNetworkFlag;
-	DWORD			m_dwLastTime;
-private:
-	CStatic			m_stcPlayWnd;
-	BOOL			m_bPlaying;
-	NcGUID			m_guidPM;
-	NcGUID			m_guidCurInV;		//正在播放的视频GUID
-	NcGUID			m_guidCurInA;		//当前播放的视频绑定的音频的GUID
-	StreamType		m_st;				//流类型
-	TransferType	m_tt;				//流传输类型
-	LPVOID			m_pChannel;
-	UINT			m_uiSesson;
-	CString			m_ServerName;
-public:
+	HANDLE				m_hVARender;
+	HANDLE				m_hVAStorage;
+	HWND				m_hWnd;
+	NcGUID				m_guidServer;
+	int					m_nErrorCode;
+	BOOL				m_bInitlized;
+	DWORD				m_dwLastPlayingTime;
+	BOOL				m_bThread;
+	BOOL				m_bNetWorkstate;
+	BOOL				m_bServerState;
+	BOOL				m_bNetworkFlag;
+	DWORD				m_dwLastTime;
 	UINT				m_uiSession;
-	int					m_nServerGuid;
-	int					m_nServerDesc;	
-	int					m_nServerRsc;
 	NcGUIDDescription	m_guidDesc;
-	int					m_nStreamCapture;
-	int					m_nStartKeyFrame;
+private:
+	CStatic				m_stcPlayWnd;
+	BOOL				m_bPlaying;
+	NcGUID				m_guidPM;
+	NcGUID				m_guidCurInV;		
+	NcGUID				m_guidCurInA;		
+	StreamType			m_st;			
+	TransferType		m_tt;				
+	UINT				m_uiSesson;
+	LPCTSTR				m_szServerName;
 };
 

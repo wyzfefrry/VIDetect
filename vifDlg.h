@@ -13,7 +13,8 @@
 #include "SystemHelper.h"
 #include "afxwin.h"
 #include "CNrcServer.h"
-#include "VIDetect.h"
+#include "CVIDetect.h"
+#include "locale.h"
 
 #define VW_TIMEMILLISECONDS		30000
 #define HR_TIMEPALY1			2991
@@ -21,7 +22,7 @@
 #define SERVER_NUM				2
 typedef struct _THREADINFO{
 	CNrcServer* serverClass;
-	VIDetect*  detectClass;
+	CVIDetect*  detectClass;
 }THREADINFO, *LPTHREADINFO;
 
 // CvifDlg ¶Ô»°¿ò
@@ -65,8 +66,8 @@ private:
 	CVideoStream	    m_VideoStream;
 	CFrameMatcher	    m_FrameMatcher;
 	CNrcServer			m_NrcServer;
-	VIDetect		    m_VIDetect;
-	enum				{m_serverNum = 1};
+	CVIDetect		    m_VIDetect;
+	enum				{ServerNum = 1};
 protected:
 	CComboBox			m_cboTarget;
 	CComboBox			m_cboSource;
@@ -75,9 +76,8 @@ public:
 	CString				m_ipAddr;
 	CString				m_userName;
 	CString				m_passWord;
-	CString				m_szPort;
+	CString				m_Port;
 	BOOL				m_bFlag;
-	THREADINFO			m_threadInfo[m_serverNum];
+	THREADINFO			m_threadInfo[ServerNum];
 };
-
 #endif //_VIFDLG_H_

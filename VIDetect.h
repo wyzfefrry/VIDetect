@@ -1,13 +1,19 @@
-#include <list>
+#include <vector>
 #include "iostream"
-using namespace std;
 #include "CServerStatusReport.h"
 
-class VIDetect {
+using namespace std;
+typedef void(*EventCallback)(int nEevent, LPCTSTR ServerName);
+class CVIDetect {
 public:
-	~VIDetect();
-	void Register(CServerStatusReport* context);
+	CVIDetect();
+	//注册需要检测的服务器
+	void Register(CServerStatusReport* pServer);
+	//对注册的服务进行检测
 	void StartDetect();
+	//设置事件处理回调函数
+	void SetEventCallback(EventCallback fnCallback);
 public:
-	list<CServerStatusReport*> m_listServers;
+	vector<CServerStatusReport*> m_vectorServers;
+	EventCallback m_fnEventCallback;
 };

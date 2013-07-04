@@ -1,78 +1,68 @@
 #include "stdafx.h"
-#include "VIDetect.h"
+#include "CVIDetect.h"
 
-VIDetect::~VIDetect() {
-	if (m_listServers.empty() != TRUE) {
-		m_listServers.clear();
-	}
-	list<CServerStatusReport*>::iterator m_listServers_Iterator = m_listServers.begin();
-	for (; m_listServers_Iterator != m_listServers.end(); m_listServers_Iterator++) {
-		delete *m_listServers_Iterator;
-		*m_listServers_Iterator = NULL;
-	}
-}
-void fnCallBack(int nEvent, CString m_ServerName) {
-	CString szInfo;
+void fnEventCallBack(int nEvent, LPCTSTR m_szServerName) {
 	switch(nEvent) {
 		case 0x0:
-			AfxMessageBox(_T("无异常"));
+			TRACE(_T("无异常\n"));
 			break;
 		case 0x1:
-			szInfo.Format(_T("%s :网络中断"),m_ServerName);
-			AfxMessageBox(szInfo);
+			TRACE(_T("%s :网络断开\n"), m_szServerName);
 			break;
 		case 0x2:
-			szInfo.Format(_T("%s :服务器断开连接"), m_ServerName);
-			AfxMessageBox(szInfo);
+			TRACE(_T("%s :服务器断开\n"), m_szServerName);
 			break;
 		case 0x3:
-			szInfo.Format(_T("%s : 网络恢复"), m_ServerName);
-			AfxMessageBox(szInfo);
+			TRACE(_T("%s : 网络恢复\n"), m_szServerName);
 			break;
 		case 0x4:
-			szInfo.Format(_T("%s :服务器恢复连接"),m_ServerName);
-			AfxMessageBox(szInfo);
+			TRACE(_T("%s :服务器恢复\n"), m_szServerName);
 			break;
 		default:
-			AfxMessageBox(_T("未知错误"));
+			TRACE(_T("未知错误\n"));
 	}
 }
-
-void VIDetect::Register(CServerStatusReport* context) { 
-	m_listServers.push_back(context);
+CVIDetect::CVIDetect() {
+	SetEventCallback(fnEventCallBack);
 }
 
-void VIDetect::StartDetect() {
+void CVIDetect::SetEventCallback(EventCallback fnCallBack) {
+	m_fnEventCallback = fnCallBack;
+}
+void CVIDetect::Register(CServerStatusReport* pServer) { 
+	m_vectorServers.push_back(pServer);
+}
+
+void CVIDetect::StartDetect() {
 	BOOL bNetworkFlag	= FALSE;
 	BOOL bServerFlag	= FALSE;
-	list<CServerStatusReport*>::iterator m_listServers_Iterator;
+	vector<CServerStatusReport*>::iterator vectorServers_Iterator;
 	while(1) {
-		for (m_listServers_Iterator = m_listServers.begin();
-			m_listServers_Iterator != m_listServers.end();
-			m_listServers_Iterator++) {
-			Sleep(2000);
-			if((*m_listServers_Iterator)->GetNetworkState() == FALSE && bNetworkFlag == FALSE) {
-				//网络中断
-				fnCallBack(0x1, CString((*m_listServers_Iterator)->GetServerName()));
-				bNetworkFlag = TRUE;
-			} else
- 			if ((*m_listServers_Iterator)->GetNetworkState()== TRUE && bNetworkFlag == TRUE) {
-				//网络恢复
-				fnCallBack(0x3, CString((*m_listServers_Iterator)->GetServerName()));
-				bNetworkFlag = FALSE;
-			}
-			if((*m_listServers_Iterator)->GetServerState() == FALSE && bServerFlag == FALSE) {
-				//服务器断开
-				fnCallBack(0x2,CString((*m_listServers_Iterator)->GetServerName()));
-				bServerFlag = TRUE;
-			}
-			if((*m_listServers_Iterator)->GetServerState() == TRUE && bServerFlag == TRUE) {
-				//服务器恢复
-				fnCallBack(0x4,(*m_listServers_Iterator)->GetServerName());
-				bServerFlag = FALSE;
-			}
-			
-		} 
+			for (vectorServers_Iterator = m_vectorServers.begin();
+				 vectorServers_Iterator != m_vectorServers.end();
+				 vectorServers_Iterator++) {
+				Sleep(2000);
+				if((*vectorServers_Iterator)->GetNetworkState() == FALSE && bNetworkFlag == FALSE) {
+					//网络中断
+					m_fnEventCallback(0x1, ((*vectorServers_Iterator)->GetServerName()));
+					bNetworkFlag = TRUE;
+				} else
+ 				if ((*vectorServers_Iterator)->GetNetworkState()== TRUE && bNetworkFlag == TRUE) {
+					//网络恢复
+					m_fnEventCallback(0x3, ((*vectorServers_Iterator)->GetServerName()));
+					bNetworkFlag = FALSE;
+				}
+				if((*vectorServers_Iterator)->GetServerState() == FALSE && bServerFlag == FALSE) {
+					//服务器断开
+					m_fnEventCallback(0x2,((*vectorServers_Iterator)->GetServerName()));
+					bServerFlag = TRUE;
+				}
+				if((*vectorServers_Iterator)->GetServerState() == TRUE && bServerFlag == TRUE) {
+					//服务器恢复
+					m_fnEventCallback(0x4,(*vectorServers_Iterator)->GetServerName());
+					bServerFlag = FALSE;
+				}
+			} 
 	}
 }
 
